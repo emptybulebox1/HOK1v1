@@ -128,10 +128,10 @@ class GameRewardManager:
             # Energy points
             # 法力值
             elif reward_name == "ep_rate":
-                if main_hero_max_ep == 0 or (main_hero_hp/main_hero_max_hp) <= 0.15:
+                if main_hero_max_ep == 0 or main_hero_hp <= 0:
                     reward_struct.cur_frame_value = 0
                 else:
-                    reward_struct.cur_frame_value = math.sqrt(main_hero_ep / float(main_hero_max_ep))
+                    reward_struct.cur_frame_value = main_hero_ep / float(main_hero_max_ep)
             # Kills
             # 击杀
             elif reward_name == "kill":
@@ -170,7 +170,6 @@ class GameRewardManager:
             # 前进
             elif reward_name == "forward":
                 reward_struct.cur_frame_value = self.calculate_forward(main_hero, main_tower, enemy_tower)
-                reward_struct.cur_frame_value += self.calculate_backward(main_hero, main_spring, enemy_spring)
 
     # Calculate the total amount of experience gained using agent level and current experience value
     # 用智能体等级和当前经验值，计算获得经验值的总量
@@ -196,23 +195,6 @@ class GameRewardManager:
         if main_hero["actor_state"]["hp"] / main_hero["actor_state"]["max_hp"] > 0.99 and dist_hero2emy > dist_main2emy:
             forward_value = (dist_main2emy - dist_hero2emy) / dist_main2emy
         return forward_value
-
-    # 用智能体到自己水晶的距离，计算后退奖励
-    # 这个奖励是为了防止智能体在无法回血/回蓝的情况下，仍然去送死
-    def calculate_backward(self, main_hero, main_spring, enemy_spring):
-        main_spring_pos = (main_spring["location"]["x"], main_spring["location"]["z"])
-        enemy_spring_pos = (enemy_spring["location"]["x"], enemy_spring["location"]["z"])
-        hero_pos = (
-            main_hero["actor_state"]["location"]["x"],
-            main_hero["actor_state"]["location"]["z"],
-        )
-        backward_value = 0
-        dist_hero2main = math.dist(hero_pos, main_spring_pos)
-        dist_main2emy = math.dist(main_spring_pos, enemy_spring_pos)
-        if ((main_hero["actor_state"]["hp"] / main_hero["actor_state"]["max_hp"] < 0.20) or
-            (main_hero["actor_state"]["ep"] / main_hero["actor_state"]["ep"] < 0.20)):
-            backward_value = (dist_main2emy - dist_hero2main) / dist_main2emy
-        return backward_value
 
     # Calculate the reward item information for both sides using frame data
     # 用帧数据来计算两边的奖励子项信息

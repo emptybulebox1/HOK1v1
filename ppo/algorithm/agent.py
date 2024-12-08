@@ -208,6 +208,10 @@ class Agent(BaseAgent):
 
         format_inputs = [feature_vec, lstm_hidden_state, lstm_cell_state]
 
+        # import pickle
+        # with open('format_inputs.pkl', 'wb') as f:
+        #     pickle.dump(format_inputs, f)
+        # exit(0)
         self.model.set_train_mode()
         self.optimizer.zero_grad()
 

@@ -202,10 +202,10 @@ class Model(nn.Module):
         # 特征向量分割
         feature_vec_split_list = feature_vec.split(
             [
-                self.all_hero_feature_dim,
-                self.all_soldier_feature_dim,
-                self.all_organ_feature_dim,
-                self.global_feature_dim,
+                self.all_hero_feature_dim, # 32 * (235+235+14)
+                self.all_soldier_feature_dim, # 32 * (18*4 + 18*4)
+                self.all_organ_feature_dim, # 32 * (18*2 + 18*2)
+                self.global_feature_dim, # 32 * 25
             ],
             dim=1,
         )
@@ -521,6 +521,7 @@ class Model(nn.Module):
                 ratio = torch.exp(final_log_p)
                 clip_ratio = ratio.clamp(0.0, 3.0)
 
+                # TODO:you can add dual-clip here
                 surr1 = clip_ratio * advantage
                 surr2 = ratio.clamp(1.0 - self.clip_param, 1.0 + self.clip_param) * advantage
                 temp_policy_loss = -torch.sum(
@@ -654,3 +655,53 @@ class MLP(nn.Module):
 
     def forward(self, data):
         return self.fc_layers(data)
+
+
+class CrossAtten(nn.Module):
+    def __init__(self, dim_model, num_heads, dim_feedforward, dropout=0.1):
+        super(CrossAtten, self).__init__()
+        self.attn = nn.MultiheadAttention(dim_model, num_heads, dropout=dropout)
+        self.linear1 = nn.Linear(dim_model, dim_feedforward)
+        self.dropout = nn.Dropout(dropout)
+        self.linear2 = nn.Linear(dim_feedforward, dim_model)
+        self.norm1 = nn.LayerNorm(dim_model)
+        self.norm2 = nn.LayerNorm(dim_model)
+        self.dropout1 = nn.Dropout(dropout)
+        self.dropout2 = nn.Dropout(dropout)
+        self.activation = F.relu
+    
+    def forward(self, k, v, q):
+        x = self.attn(k, v, q)[0]
+        x = self.norm1(x)
+        x = self.dropout1(x)
+        x = self.linear2(self.dropout(self.activation(self.linear1(x))))
+        x = self.norm2(x)
+        x = self.dropout2(x)
+        return x
+    
+
+def draw_model_graph():
+    # useage:
+    # in folder code-hok1v1-IDE-14
+    # >> export PYTHONPATH=$(pwd)
+    # >> python ppo/model/model.py
+    from torch.utils.tensorboard import SummaryWriter
+    import pickle
+
+    model = Model()
+    writer = SummaryWriter('log_tensorboard')
+    check_pth = '/Users/yuanziye/Desktop/Reinforcement-Learning/code-hok1v1-IDE-14/ppo/model/check_data/format_inputs.pkl'
+    with open(check_pth, 'rb') as f:
+        example_input = pickle.load(f)
+    
+    feature_vec, lstm_hidden_state, lstm_cell_state = example_input
+    # torch.Size([32, 725]) torch.Size([2, 512]) torch.Size([2, 512])
+    print(feature_vec.shape, lstm_hidden_state.shape, lstm_cell_state.shape)
+
+    model.set_train_mode()
+    model()
+    writer.add_graph(model, ([feature_vec, lstm_hidden_state, lstm_cell_state], ))
+    writer.close()
+
+if __name__ == '__main__':
+    draw_model_graph()

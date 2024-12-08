@@ -1,0 +1,21 @@
+1. 对reward函数的调整
+    1.1 观察到原始ppo对线敌方的时候总是舍不得放技能，只会平A，这是因为技能耗蓝，
+    而reward中对蓝的权重很大而且是线性的，所以这里应该放照生命值，取平方根
+    1.2 观察到原始ppo根本不知道要回水晶来回血，一旦使用完技能，也不会回水晶
+    
+2. 对网络的修改
+    我错了原始网络里面已经有了attention
+    2.1 原始网络结构
+        Unit : {Player_hero, Enemy_hero, Creeps, Turrents}
+        将每一个Unit过若干层MLP，pooling之后concatenate到一起，作为LSTM的输入
+        LSTM预测的action(i.e. action label)过一层MLP之后作为预测的输出
+        这里的输出就是对于 Button(普通攻击/治疗/大招/技能)/MoveX/MoveY/OffsetX/OffsetY/Target_Unit
+        的预测，表示模型预测下一步应该进行什么操作。
+    2.1 加入cross atten
+        这里将 '每一个Unit过若干层MLP' 获得的权重split一份出来，作为key
+        将原本Target_Unit的输出(过一层MLP之后的结果)作为query
+        没有value，因为我们只是用类似attention的机制来得到注意力权重而非真的去计算一个注意力
+        key和query做点乘后经过softmax：
+            Softmax(FC(h_LSTM)*h_keys^T), T是转置
+    
+    所以目前没有任何对网络的改动！
